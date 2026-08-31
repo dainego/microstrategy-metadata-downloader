@@ -1,0 +1,24 @@
+# Credentials and environment configuration
+.env
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated outputs
+logs/
+results/
+results_backup/
+
+# IDE configuration
+.vscode/
+.idea/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

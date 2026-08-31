@@ -2,33 +2,54 @@ import requests
 import json
 import csv
 import logging
-from utils import setup_logger, write_json_to_file, write_to_csv
+from utils import setup_logger, write_json_to_file, write_to_csv, write_to_text, parse_folder
 from datetime import datetime
 import sys
+from pathlib import Path
 
-#
-project_id_big_data = "86B8BBB711E8A19F0A290080EF251385"
-project_id_muc = "B32C690C11EAEDFDC5090080EF35D25D"
-root_attributes_big_data = "6F55FB47F9974EABA18CB0C5FF46785C"
-root_attributes_muc = "6F55FB47F9974EABA18CB0C5FF46785C"
+from config import (
+    BASE_URL,
+    ACCOUNT_ID,
+    ACCOUNT_PASSWORD,
+    APP_NAME,
+    LOG_FOLDER,
+    RESULTS_FOLDER,
+    OBJECT_TYPE_ATTRIBUTE,
+    OBJECT_SUBTYPE_ATTRIBUTE,
+    PROJECTS
+)
 
+#Variables de Proyectos    
+project_id_big_data = PROJECTS["1"]["project_id"]
+project_id_muc = PROJECTS["2"]["project_id"]
+root_attributes_big_data = PROJECTS["1"]["attribute_root"]
+root_attributes_muc = PROJECTS["2"]["attribute_root"]
 
-base_url = "https://bi.movistar.com.ar/MicroStrategyLibrary/api"
-
-account_id = "diotero"
-account_psw = "Giwos.007"
-object_type_attribute = 12
-object_subtype_attribute = 3072
+#Variables de objetos
+object_type_attribute = OBJECT_TYPE_ATTRIBUTE
+object_subtype_attribute = OBJECT_SUBTYPE_ATTRIBUTE
 object_type_metric = 4
 object_type_filter = 1
 object_type_fact = 13
 
+#Variables de API
+base_url = BASE_URL
+account_id = ACCOUNT_ID
+account_psw = ACCOUNT_PASSWORD
 
-app_name="microstrategy-metadata-downloader"
+# Define log filename
+app_name=APP_NAME
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-log_file = f"microstrategy_metadata_downloader_{timestamp}.txt"
+log_file = f"{APP_NAME}_{timestamp}.txt"
 
+# Define project and output folders
+base_folder = Path(__file__).resolve().parent
+log_folder = LOG_FOLDER
+results_folder = RESULTS_FOLDER
 
+# Create folders before using them
+log_folder.mkdir(parents=True, exist_ok=True)
+results_folder.mkdir(parents=True, exist_ok=True)
 
 # Function for API call
 def api_call(method, url, cookies, headers=None, params=None, json_body=None, logger=None,timeout=3600, retries=5):
@@ -257,7 +278,18 @@ def flatten_attribute_details(attribute_list, folder_map):
         attribute_name = information.get("name")
         description = information.get("description")
 
+        #If description is not None, replace newlines with spaces
+        if description:
+             description = " ".join(description.split())
+
         folder = folder_map.get(object_id)
+
+        folder_fields = parse_folder(folder)
+        model = folder_fields.get("model")
+        submodel = folder_fields.get("submodel")
+        submodel1 = folder_fields.get("submodel1")
+        submodel2 = folder_fields.get("submodel2")
+        submodel3 = folder_fields.get("submodel3")
 
         for form in attribute.get("forms", []):
 
@@ -282,6 +314,11 @@ def flatten_attribute_details(attribute_list, folder_map):
                         "name": attribute_name,
                         "description": description,
                         "folder": folder,
+                        "model": model,
+                        "submodel": submodel,
+                        "submodel1": submodel1,
+                        "submodel2": submodel2,
+                        "submodel3": submodel3,
                         "formName": form_name,
                         "formCategory": form_category,
                         "displayFormat": display_format,
@@ -298,6 +335,11 @@ def flatten_attribute_details(attribute_list, folder_map):
                             "name": attribute_name,
                             "description": description,
                             "folder": folder,
+                            "model": model,
+                            "submodel": submodel,
+                            "submodel1": submodel1,
+                            "submodel2": submodel2,
+                            "submodel3": submodel3,                           
                             "formName": form_name,
                             "formCategory": form_category,
                             "displayFormat": display_format,
@@ -335,7 +377,7 @@ def logout(base_url, auth_token, cookies, logger):
 def main():
 
     #Start of the script
-    logger = setup_logger(name=app_name, log_file=log_file, level=logging.DEBUG)
+    logger = setup_logger(name=app_name, log_file=log_folder / log_file, level=logging.DEBUG)
     logger.info("Start of the script")
 
     print("Select what to process:")
@@ -368,7 +410,7 @@ def main():
     #Get Attirbute List
     logger.info("Retrieving attribute list")
     attribute_list, attribute_tree  = list_objects(base_url, auth_token, cookies, logger, project_id, object_type_attribute, root_attributes)
-    write_json_to_file(attribute_list, "attribute_list.txt")
+    #write_json_to_file(attribute_list, "attribute_list.txt")
 
     # Exclude derived attributes
     attribute_ids = [
@@ -382,9 +424,10 @@ def main():
     logger.info("Retrieving attribute details")
     folder_map = build_folder_map(attribute_tree, attribute_ids)
     attributes_details = get_all_attribute_details(base_url, auth_token, cookies, logger,project_id, attribute_ids)
-    write_json_to_file(attributes_details, "attributes_details.json")
+    #write_json_to_file(attributes_details, "attributes_details.json")
     flat_attributes = flatten_attribute_details(attributes_details, folder_map)
-    write_to_csv(flat_attributes, "flat_attributes.csv")
+    write_to_text(flat_attributes, results_folder / f"flat_attributes_{timestamp}.txt", "|")
+    write_json_to_file(flat_attributes, results_folder / f"flat_attributes_{timestamp}.json")
     logger.info(f"Retrieved details for {len(attribute_list)} attributes")
 
     logout(base_url, auth_token, cookies, logger)

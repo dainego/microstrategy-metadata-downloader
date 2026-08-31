@@ -1,4 +1,13 @@
-import utils
+from config import (
+    BASE_URL,
+    ACCOUNT_ID,
+    ACCOUNT_PASSWORD,
+    LOG_FOLDER,
+    RESULTS_FOLDER,
+    OBJECT_TYPE_ATTRIBUTE,
+    OBJECT_SUBTYPE_ATTRIBUTE,
+    PROJECTS
+)
 
-print(utils.__file__)
-print(dir(utils))
+print(ACCOUNT_ID)
+print(ACCOUNT_PASSWORD)
