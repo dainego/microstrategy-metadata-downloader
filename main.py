@@ -2,7 +2,7 @@ import requests
 import json
 import csv
 import logging
-from utils import setup_logger, write_json_to_file, write_to_csv, write_to_text, parse_folder
+from utils import setup_logger, write_json_to_file, write_to_csv, write_to_text, parse_folder, clean_text
 from datetime import datetime
 import sys
 from pathlib import Path
@@ -50,6 +50,9 @@ results_folder = RESULTS_FOLDER
 # Create folders before using them
 log_folder.mkdir(parents=True, exist_ok=True)
 results_folder.mkdir(parents=True, exist_ok=True)
+
+#Define Log Level
+log_level = logging.DEBUG
 
 # Function for API call
 def api_call(method, url, cookies, headers=None, params=None, json_body=None, logger=None,timeout=3600, retries=5):
@@ -280,7 +283,7 @@ def flatten_attribute_details(attribute_list, folder_map):
 
         #If description is not None, replace newlines with spaces
         if description:
-             description = " ".join(description.split())
+             description = clean_text(description)
 
         folder = folder_map.get(object_id)
 
@@ -377,7 +380,7 @@ def logout(base_url, auth_token, cookies, logger):
 def main():
 
     #Start of the script
-    logger = setup_logger(name=app_name, log_file=log_folder / log_file, level=logging.DEBUG)
+    logger = setup_logger(name=app_name, log_file=log_folder / log_file, level=log_level)
     logger.info("Start of the script")
 
     print("Select what to process:")

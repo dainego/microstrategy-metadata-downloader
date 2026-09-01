@@ -1,13 +1,23 @@
 import logging
+from pathlib import Path
 import csv
 import json
 
-#Function to set up logging
-def setup_logger(name="app", log_file=None, level=logging.INFO):
+def setup_logger(
+    name: str,
+    log_file: Path | str,
+    level: int = logging.INFO
+) -> logging.Logger:
+
+    """
+    Create a logger that writes messages to both the console
+    and a log file.
+    """
+
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Avoid adding duplicate handlers
+    # Avoid adding duplicate handlers if the logger is initialized again
     if logger.handlers:
         return logger
 
@@ -17,19 +27,32 @@ def setup_logger(name="app", log_file=None, level=logging.INFO):
 
     # Log to console
     console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    # Optionally log to file
+    # Log to File
     if log_file:
         file_handler = logging.FileHandler(
             log_file,
             encoding="utf-8"
         )
+        file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
     return logger
+
+#Function to clean text by removing line breaks, tabs, and repeated whitespace
+def clean_text(value: str | None) -> str | None:
+    """
+    Remove line breaks, tabs, and repeated whitespace from text.
+    """
+
+    if value is None:
+        return None
+
+    return " ".join(value.split())
 
 # Function to write JSON data to a file
 def write_json_to_file(data, file_path, indent=4):
