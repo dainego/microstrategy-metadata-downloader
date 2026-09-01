@@ -1,9 +1,33 @@
-#Internal libraries
+# Funciones para consultar metadata de MicroStrategy, reconstruir las rutas
+# de carpetas y transformar los atributos en registros planos exportables.
+# La autenticación y la escritura de archivos se gestionan en otros módulos.
+
+# Utilidades internas para las llamadas HTTP y la limpieza de descripciones.
 from microstrategy_client import api_call
 from utils import clean_text
 
-# Function to list objects
+
 def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, root):
+    """
+    Crea una búsqueda de objetos por tipo y recupera sus resultados como lista y como árbol.
+
+    Parámetros:
+        base_url: URL base de la API de MicroStrategy.
+        auth_token: Token de una sesión autenticada.
+        cookies: Cookies de la sesión.
+        logger: Logger utilizado para registrar las llamadas y sus errores.
+        project_id: Identificador del proyecto que se consultará.
+        object_type: Tipo de objeto que se desea buscar.
+        root: Identificador de la carpeta raíz de la búsqueda.
+
+    Retorno:
+        Tupla (objects, tree) con las respuestas JSON deserializadas:
+        la lista de objetos y el árbol utilizado para reconstruir sus rutas.
+
+    Consideraciones:
+        Actualmente no comprueba si api_call() devuelve None antes de acceder
+        a response.json(). Los errores de respuesta o estructura se propagan.
+    """
     
     headers = {
         "X-MSTR-AuthToken": auth_token,
@@ -11,7 +35,7 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
         "Accept": "application/json"
     }
 
-    # Create metadata search
+    # Inicia la búsqueda con el tipo, la visibilidad y la raíz indicados.
     response = api_call(
         method="POST",
         url=f"{base_url}/metadataSearches/results",
@@ -27,9 +51,11 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
         }
     )
 
+    # Reutiliza el identificador de búsqueda en las siguientes consultas.
     search_id = response.json()["id"]
 
-    # Retrieve metadata search results
+    # Recupera los resultados usando los parámetros de la implementación actual.
+    # El timeout se expresa en segundos y se pasa a api_call().
     response = api_call(
         method="GET",
         url=f"{base_url}/metadataSearches/results",
@@ -45,7 +71,7 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
 
     objects = response.json()
 
-     # Retrieve the same results as a tree
+    # Recupera la representación jerárquica de la misma búsqueda.
     response = api_call(
         method="GET",
         url=f"{base_url}/metadataSearches/results/tree",
@@ -63,8 +89,23 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
 
     return objects, tree
 
-# Function to get attribute details
+
 def get_attribute_details(base_url, auth_token, cookies, logger, project_id, attribute_id):
+    """
+    Consulta el detalle de un atributo mediante su identificador.
+
+    Parámetros:
+        base_url: URL base de la API.
+        auth_token: Token de autenticación.
+        cookies: Cookies de la sesión.
+        logger: Logger para registrar errores y advertencias.
+        project_id: Identificador del proyecto.
+        attribute_id: Identificador del atributo que se consultará.
+
+    Retorno:
+        Detalle deserializado de la respuesta JSON, o None si api_call()
+        devuelve None. Los errores al interpretar el JSON no se capturan aquí.
+    """
 
     headers = {
         "X-MSTR-AuthToken": auth_token,
@@ -83,6 +124,8 @@ def get_attribute_details(base_url, auth_token, cookies, logger, project_id, att
         timeout=1800
     )
 
+    # Permite omitir el atributo cuando la llamada HTTP no obtiene respuesta
+    # utilizable. Se conserva el mensaje original del registro de ejecución.
     if response is None:
         logger.warning(
             f"Skipping attribute {attribute_id}"
@@ -92,8 +135,27 @@ def get_attribute_details(base_url, auth_token, cookies, logger, project_id, att
 
     return response.json()
 
-#Function to get all attribute details
+
 def get_all_attribute_details(base_url, auth_token, cookies, logger, project_id, attribute_ids):
+    """
+    Recupera secuencialmente los detalles de los atributos seleccionados.
+
+    Parámetros:
+        base_url: URL base de la API.
+        auth_token: Token de autenticación.
+        cookies: Cookies de la sesión.
+        logger: Logger para registrar el progreso y los errores.
+        project_id: Identificador del proyecto.
+        attribute_ids: Secuencia de identificadores de atributos.
+
+    Retorno:
+        Lista en el mismo orden que attribute_ids. Incluye None cuando una
+        consulta devuelve ese valor; el aplanamiento lo omite posteriormente.
+
+    Consideraciones:
+        El progreso cuenta consultas procesadas, no necesariamente exitosas.
+        Una excepción no capturada interrumpe el recorrido.
+    """
 
     attributes = []
 
@@ -113,13 +175,30 @@ def get_all_attribute_details(base_url, auth_token, cookies, logger, project_id,
 
     return attributes
 
-#Function to flatten attribute details
+
 def flatten_attribute_details(attribute_list, folder_map):
+    """
+    Transforma los detalles anidados de atributos en una lista de diccionarios.
+
+    Parámetros:
+        attribute_list: Lista de detalles de atributos; puede incluir None.
+        folder_map: Diccionario que relaciona el ID de cada objeto con su ruta.
+
+    Retorno:
+        Registros planos con datos del atributo, carpeta, modelo, submodelos,
+        forma, expresión y tabla. Genera una fila por combinación recorrida
+        de atributo, forma, expresión y tabla. Si la expresión no tiene tablas,
+        genera una fila con los campos de tabla en None.
+
+    Consideraciones:
+        Omite los detalles None, los atributos sin formas y las formas sin
+        expresiones. Solo normaliza el texto de la descripción.
+    """
     flat_attributes = []
 
     for attribute in attribute_list:
 
-        # Skip attributes whose API call failed
+        # Omite las consultas fallidas representadas por None.
         if attribute is None:
             continue
 
@@ -130,12 +209,13 @@ def flatten_attribute_details(attribute_list, folder_map):
         attribute_name = information.get("name")
         description = information.get("description")
 
-        #If description is not None, replace newlines with spaces
+        # Normaliza saltos de línea, tabulaciones y espacios de la descripción.
         if description:
              description = clean_text(description)
 
+        # Descompone la ruta en modelo y los cuatro niveles de submodelo
+        # definidos en esta versión: submodel, submodel1, submodel2 y submodel3.
         folder = folder_map.get(object_id)
-
         folder_fields = parse_folder(folder)
         model = folder_fields.get("model")
         submodel = folder_fields.get("submodel")
@@ -143,6 +223,7 @@ def flatten_attribute_details(attribute_list, folder_map):
         submodel2 = folder_fields.get("submodel2")
         submodel3 = folder_fields.get("submodel3")
 
+        # Recorre los forms del atributo y las expresiones de cada form.
         for form in attribute.get("forms", []):
 
             form_name = form.get("name")
@@ -159,6 +240,7 @@ def flatten_attribute_details(attribute_list, folder_map):
 
                 tables = expression_item.get("tables", [])
 
+                # Conserva la expresión como línea vacía aunque no tenga tablas asociadas.
                 if not tables:
                     flat_attributes.append({
                         "objectId": object_id,
@@ -180,6 +262,7 @@ def flatten_attribute_details(attribute_list, folder_map):
                     })
 
                 else:
+                    # Repite los datos del atributo para cada tabla asociada.   
                     for table in tables:
                         flat_attributes.append({
                             "objectId": object_id,
@@ -204,16 +287,32 @@ def flatten_attribute_details(attribute_list, folder_map):
 
 
 def build_folder_map(search_tree, object_ids):
+    """
+    Construye un diccionario de rutas para los objetos seleccionados.
+
+    Parámetros:
+        search_tree: Árbol de búsqueda con nodos que pueden contener id,
+            name y children.
+        object_ids: Identificadores de los objetos cuyas rutas se necesitan.
+
+    Retorno:
+        Diccionario {id_objeto: ruta_de_carpeta}, con niveles separados por
+        "/". No incluye el nombre del objeto ni el nodo raíz del árbol.
+        Los objetos que no se encuentran no se agregan al diccionario.
+    """
     folder_map = {}
 
+    # Usa un conjunto para comprobar la pertenencia de cada ID durante
+    # el recorrido sin buscar secuencialmente en la lista original.
     object_ids = set(object_ids)
 
     def walk(node, current_path):
+        """Recorre un nodo y sus descendientes acumulando la ruta de carpetas."""
 
         children = node.get("children", [])
 
-        # If the node is one of our objects, current_path
-        # represents the folder containing it
+        # Al encontrar un objeto seleccionado, current_path ya representa
+        # la carpeta que lo contiene. No recorre descendientes de ese objeto.
         if node.get("id") in object_ids:
             folder_map[node["id"]] = "/".join(current_path)
             return
@@ -229,7 +328,7 @@ def build_folder_map(search_tree, object_ids):
             for child in children:
                 walk(child, next_path)
 
-    # Do not include the project/tree root itself in the folder path
+    # Comienza en los hijos para excluir el nodo raíz del proyecto o del árbol.
     for child in search_tree.get("children", []):
         walk(child, [])
 
@@ -238,7 +337,21 @@ def build_folder_map(search_tree, object_ids):
 
 def parse_folder(folder):
     """
-    Parses a folder path and extracts model and submodel information.
+    Descompone una ruta de carpeta en modelo y niveles de submodelo.
+
+    Parámetros:
+        folder: Ruta como cadena, o None si no se conoce la carpeta.
+
+    Retorno:
+        Diccionario con model, submodel, submodel1, submodel2 y submodel3.
+        Los niveles que no están presentes conservan el valor None.
+
+    Consideraciones:
+        Normaliza los separadores de ruta y elimina componentes vacíos.
+        Quita el prefijo Schema Objects/Attributes solo si coincide exactamente
+        con los dos primeros componentes, respetando mayúsculas y minúsculas.
+        Si no coincide, interpreta la ruta completa como niveles del modelo.
+        Los niveles que exceden los cinco campos disponibles se ignoran.
     """
 
     root_parts = ["Schema Objects", "Attributes"]
@@ -273,6 +386,7 @@ def parse_folder(folder):
         "submodel3"
     ]
 
+    # Asigna los niveles en orden; zip() termina al agotar la lista más corta.
     for field_name, value in zip(field_names, parts):
         result[field_name] = value
 
