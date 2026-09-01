@@ -15,8 +15,6 @@ ACCOUNT_PASSWORD = os.getenv("MSTR_PASSWORD")
 
 # Paths
 APP_NAME = "microstrategy-metadata-downloader"
-
-BASE_FOLDER = Path(__file__).resolve().parent
 LOG_FOLDER = BASE_FOLDER / "logs"
 RESULTS_FOLDER = BASE_FOLDER / "results"
 
