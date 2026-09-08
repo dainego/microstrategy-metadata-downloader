@@ -3,11 +3,17 @@
 # La autenticación y la escritura de archivos se gestionan en otros módulos.
 
 # Utilidades internas para las llamadas HTTP y la limpieza de descripciones.
-from microstrategy_client import api_call
+from xmlrpc import client
+
+from microstrategy_client import MicroStrategyClient
 from utils import clean_text
 
 
-def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, root):
+def list_objects(
+    client: MicroStrategyClient,
+    object_type: int,
+    root: str,
+):
     """
     Crea una búsqueda de objetos por tipo y recupera sus resultados como lista y como árbol.
 
@@ -29,26 +35,18 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
         a response.json(). Los errores de respuesta o estructura se propagan.
     """
     
-    headers = {
-        "X-MSTR-AuthToken": auth_token,
-        "X-MSTR-ProjectID": project_id,
-        "Accept": "application/json"
-    }
 
     # Inicia la búsqueda con el tipo, la visibilidad y la raíz indicados.
-    response = api_call(
+    response = client.api_call(
         method="POST",
-        url=f"{base_url}/metadataSearches/results",
-        headers=headers,
-        cookies=cookies,
-        logger=logger,
+        endpoint="/metadataSearches/results",
         params={
             "domain": 2,
             "type": object_type,
             "scope": "all",
             "visibility": "VISIBLE",
-            "root": root
-        }
+            "root": root,
+        },
     )
 
     # Reutiliza el identificador de búsqueda en las siguientes consultas.
@@ -56,33 +54,27 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
 
     # Recupera los resultados usando los parámetros de la implementación actual.
     # El timeout se expresa en segundos y se pasa a api_call().
-    response = api_call(
+    response = client.api_call(
         method="GET",
-        url=f"{base_url}/metadataSearches/results",
-        headers=headers,
-        cookies=cookies,
-        logger=logger,
+        endpoint="/metadataSearches/results",
         timeout=7200,
         params={
             "searchId": search_id,
-            "limit": -1
-        }
+            "limit": -1,
+        },
     )
 
     objects = response.json()
 
     # Recupera la representación jerárquica de la misma búsqueda.
-    response = api_call(
+    response = client.api_call(
         method="GET",
-        url=f"{base_url}/metadataSearches/results/tree",
-        headers=headers,
-        cookies=cookies,
-        logger=logger,
+        endpoint="/metadataSearches/results/tree",
         timeout=7200,
         params={
             "searchId": search_id,
-            "limit": -1
-        }
+            "limit": -1,
+        },
     )
 
     tree = response.json()
@@ -90,7 +82,10 @@ def list_objects(base_url, auth_token, cookies, logger,project_id, object_type, 
     return objects, tree
 
 
-def get_attribute_details(base_url, auth_token, cookies, logger, project_id, attribute_id):
+def get_attribute_details(
+    client: MicroStrategyClient,
+    attribute_id: str,
+):
     """
     Consulta el detalle de un atributo mediante su identificador.
 
@@ -107,36 +102,28 @@ def get_attribute_details(base_url, auth_token, cookies, logger, project_id, att
         devuelve None. Los errores al interpretar el JSON no se capturan aquí.
     """
 
-    headers = {
-        "X-MSTR-AuthToken": auth_token,
-        "X-MSTR-ProjectID": project_id,
-        "Accept": "application/json"
-    }
-
-    url = f"{base_url}/model/attributes/{attribute_id}"
-
-    response = api_call(
+    response = client.api_call(
         method="GET",
-        url=url,
-        headers=headers,
-        cookies=cookies,
-        logger=logger,
-        timeout=1800
+        endpoint=f"/model/attributes/{attribute_id}",
+        timeout=1800,
     )
 
     # Permite omitir el atributo cuando la llamada HTTP no obtiene respuesta
     # utilizable. Se conserva el mensaje original del registro de ejecución.
     if response is None:
-        logger.warning(
-            f"Skipping attribute {attribute_id}"
-    )
-
+        client.logger.warning(
+            "Se omite el atributo %s porque no se obtuvo respuesta.",
+            attribute_id,
+        )
         return None
 
     return response.json()
 
 
-def get_all_attribute_details(base_url, auth_token, cookies, logger, project_id, attribute_ids):
+def get_all_attribute_details(
+    client: MicroStrategyClient,
+    attribute_ids,
+):
     """
     Recupera secuencialmente los detalles de los atributos seleccionados.
 
@@ -159,18 +146,20 @@ def get_all_attribute_details(base_url, auth_token, cookies, logger, project_id,
 
     attributes = []
 
-    for i, attribute_id in enumerate(attribute_ids, start=1):
+    for position, attribute_id in enumerate(attribute_ids, start=1):
 
         attribute = get_attribute_details(
-            base_url,
-            auth_token,
-            cookies,
-            logger,
-            project_id,
-            attribute_id
+            client,
+            attribute_id,
         )
 
-        logger.info(f"Processed {i} of {len(attribute_ids)} - {attribute_id}")
+        client.logger.info(
+            "Procesado %s de %s - %s",
+            position,
+            len(attribute_ids),
+            attribute_id,
+        )
+
         attributes.append(attribute)
 
     return attributes

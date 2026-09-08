@@ -11,5 +11,21 @@ deactivate
 # Levantar servicio uvicorn
 python -m uvicorn api:app --reload
 
+# URL Uvicorn
+http://127.0.0.1:8000/docs
+
 # Prueba de compilación de Código
 python -m py_compile api.py
+
+# Gitlab
+## Branch actual
+git branch
+
+## Agregar archivos
+git add .
+
+## Commit
+git commit -m "text"
+
+## Push
+git push origin [branch]

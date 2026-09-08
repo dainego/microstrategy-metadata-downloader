@@ -35,17 +35,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 #Funciones de los módulos internos del proyecto.
-from config import (
-    BASE_URL,
-    ACCOUNT_ID,
-    ACCOUNT_PASSWORD,
-    APP_NAME,
-    LOG_FOLDER,
-    RESULTS_FOLDER,
-    OBJECT_TYPE_ATTRIBUTE,
-    OBJECT_SUBTYPE_ATTRIBUTE,
-    PROJECTS
-)
+import config
 from service import download_metadata
 from utils import setup_logger
 
@@ -101,11 +91,11 @@ def execute_download(job_id: str, project_key: str):
 
     except Exception as exc:
         # No publica el texto de la excepción ni posibles datos sensibles.
-        logger.error(
-            "Falló el trabajo %s (%s).",
-            job_id,
-            type(exc).__name__,
+        logger.exception(
+        "Falló el trabajo %s.",
+        job_id,
         )
+
 
         with jobs_lock:
             jobs[job_id].update({
