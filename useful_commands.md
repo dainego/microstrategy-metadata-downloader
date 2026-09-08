@@ -17,6 +17,9 @@ http://127.0.0.1:8000/docs
 # Prueba de compilación de Código
 python -m py_compile api.py
 
+# Correr Main.py
+python main.py
+
 # Gitlab
 ## Branch actual
 git branch
@@ -29,3 +32,8 @@ git commit -m "text"
 
 ## Push
 git push origin [branch]
+
+## Duplicar branch como nueva branch
+git pull origin [branch-original]
+git switch -c [nueva-branch]
+git push -u origin [nueva-branch]

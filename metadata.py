@@ -2,8 +2,6 @@
 # de carpetas y transformar los atributos en registros planos exportables.
 # La autenticación y la escritura de archivos se gestionan en otros módulos.
 
-# Utilidades internas para las llamadas HTTP y la limpieza de descripciones.
-from xmlrpc import client
 
 from microstrategy_client import MicroStrategyClient
 from utils import clean_text

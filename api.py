@@ -39,8 +39,6 @@ import config
 from service import download_metadata
 from utils import setup_logger
 
-#Crea la carpeta de logs si no existe, incluyendo cualquier carpeta padre necesaria.
-config.LOG_FOLDER.mkdir(parents=True, exist_ok=True)
 
 #Configura el logger para registrar errores y advertencias en un archivo. 
 logger = setup_logger(

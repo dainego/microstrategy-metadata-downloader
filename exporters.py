@@ -4,7 +4,7 @@
 # El modo "w" reemplaza el contenido de un archivo existente.
 # Los errores de escritura se propagan al código que llama a la función.
 
-import csv
+
 import json
 
 
@@ -35,42 +35,6 @@ def write_to_json(data,
             ensure_ascii=False
         )
 
-
-def write_to_csv(data, file_path):
-    """
-    Exporta una lista de diccionarios a un archivo CSV separado por comas.
-
-    Parámetros:
-        data: Lista no vacía de diccionarios. Las claves del primero
-            definen las columnas y su orden.
-        file_path: Ruta del archivo de destino.
-
-    Retorno:
-        None. El resultado se escribe en el archivo indicado.
-
-    Consideraciones:
-        Una lista vacía produce IndexError después de abrir el archivo.
-        Las claves adicionales en filas posteriores producen ValueError.
-        Los campos ausentes y los valores None se escriben como celdas vacías.
-    """
-    # Evita acceder al primer registro cuando no hay datos.
-    if not data:
-        return
-    
-    # newline="" permite que csv gestione los saltos de línea.
-    # utf-8-sig incluye una marca BOM que facilita la detección de UTF-8
-    # al abrir el archivo en aplicaciones como Excel.
-    with open(file_path, "w", newline="", encoding="utf-8-sig") as csv_file:
-
-        # DictWriter asigna cada valor a la columna indicada por su clave
-        # y aplica las comillas necesarias para el formato CSV.
-        writer = csv.DictWriter(
-            csv_file,
-            fieldnames=data[0].keys()
-        )
-
-        writer.writeheader()
-        writer.writerows(data)
 
 
 def write_to_text(data, file_path, separator="|"):
