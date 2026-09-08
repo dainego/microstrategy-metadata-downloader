@@ -3,6 +3,7 @@ No solicita datos por consola ni inicia trabajos en segundo plano. Devuelve un
 diccionario serializable a JSON al terminar; los errores del proceso se propagan.
 No es todavía una API HTTP ni un administrador persistente de trabajos.
 """
+
 #Modulos incorporado de Python
 import logging
 from datetime import datetime, timezone
@@ -47,6 +48,7 @@ def download_metadata(project_key, logger=None):
     run_id = uuid4().hex
 
     # Si no se recibe un logger, crea uno propio con archivo por ejecución y cierra únicamente sus propios manejadores.
+    # own_logger será True si no se recibió un logger, y será False si se recibió uno
     own_logger = logger is None
     # Si se crea un logger propio, se asegura de que exista la carpeta de logs y se configura con el nombre del proyecto y el identificador de ejecución.
     run_log = None
@@ -71,45 +73,63 @@ def download_metadata(project_key, logger=None):
     try:
         if not isinstance(project_key, str) or project_key not in config.PROJECTS:
             raise ValueError("El proyecto solicitado no existe en PROJECTS.")
+        #Luego de validado el project_key, obtiene la información del proyecto del diccionario PROJECTS de config.py
         project = config.PROJECTS[project_key]
+
+        #Valida que las variables de entorno requeridas estén presentes en config.py antes de iniciar la descarga.
         missing = [
-            name for name in ("BASE_URL", "ACCOUNT_ID", "ACCOUNT_PASSWORD")
-            if not getattr(config, name, None)
+            name for name in ("BASE_URL", "ACCOUNT_ID", "ACCOUNT_PASSWORD") #recorre los nombres de variables de entorno requeridas
+            if not getattr(config, name, None) #por cada nombre de variable obtiene el valor de la variable de entorno en config.py, si no existe devuelve None
         ]
         if missing:
             raise ValueError("Falta configuración requerida: " + ", ".join(missing))
         if not project.get("project_id") or not project.get("attribute_root"):
             raise ValueError("El proyecto necesita project_id y attribute_root.")
 
+        #Loguea el inicio de la ejecución del proyecto con el identificador de ejecución y la clave del proyecto.
         logger.info("Ejecución %s: inicio del proyecto %s.", run_id, project_key)
         output_folder = Path(config.RESULTS_FOLDER) / run_id
         output_folder.mkdir(parents=True, exist_ok=False)
 
-        # Una instancia por ejecución: no se comparten tokens o cookies entre jobs.
-        client = MicroStrategyClient(config.BASE_URL, project["project_id"], logger)
+        #Define una instancia de la clase MicrostrategyClient
+        client = MicroStrategyClient(config.BASE_URL, project["project_id"], logger) 
+
+        #Inicia sesión en la API de MicroStrategy con las credenciales proporcionadas en config.py
         client.login(config.ACCOUNT_ID, config.ACCOUNT_PASSWORD)
+
+        #Obtiene la lista de objetos y el árbol de carpetas del proyecto, filtrando por el tipo de objeto "attribute" y la carpeta raíz especificada en config.py
         objects, tree = list_objects(
             client, config.OBJECT_TYPE_ATTRIBUTE, project["attribute_root"]
         )
+
+        #Filtra los objetos obtenidos para quedarse solo con los atributos, y construye un mapa de carpetas a partir del árbol de carpetas y los identificadores de los atributos.
         attribute_ids = [
             obj["id"] for obj in objects
             if obj.get("subtype") == config.OBJECT_SUBTYPE_ATTRIBUTE
         ]
         folder_map = build_folder_map(tree, attribute_ids)
+
+        # Obtiene los detalles de todos los atributos filtrados, y registra los identificadores de aquellos que fallaron en la descarga.
         details = get_all_attribute_details(client, attribute_ids)
+
         failed_ids = [
             object_id for object_id, detail in zip(attribute_ids, details)
             if detail is None
         ]
+
+        #Cuenta la cantidad de atributos descargados correctamente y lanza un error si no se pudo descargar ningún detalle de los atributos seleccionados.
         downloaded = len(details) - len(failed_ids)
         if attribute_ids and downloaded == 0:
             raise RuntimeError("No se pudo descargar el detalle de ningún atributo seleccionado.")
         if failed_ids:
             warnings.append(f"Falló la descarga de {len(failed_ids)} atributos.")
 
+        #Convierte los detalles de los atributos descargados en filas exportables, y si no se generaron filas, agrega una advertencia. 
         rows = flatten_attribute_details(details, folder_map)
         if downloaded and not rows:
             warnings.append("Los detalles descargados no generaron filas exportables.")
+
+         # Luego, escribe los resultados en un archivo JSON y, si hay filas, también en un archivo TXT.
         json_path = output_folder / "flat_attributes.json"
         write_to_json(rows, json_path)
         # El exportador TXT actual no crea archivos con una lista vacía.
@@ -118,6 +138,9 @@ def download_metadata(project_key, logger=None):
             text_path = output_folder / "flat_attributes.txt"
             write_to_text(rows, text_path, "|")
 
+        # Finalmente, construye un resumen de la ejecución con información relevante, incluyendo el identificador de ejecución,
+        # la clave y el nombre del proyecto, la fecha y hora de inicio, la cantidad de objetos encontrados, 
+        # atributos seleccionados y descargados, atributos fallidos, filas exportadas, rutas de los archivos generados y el archivo de log.
         summary = {
             "run_id": run_id,
             "project_key": project_key,

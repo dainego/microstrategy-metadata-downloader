@@ -1,4 +1,13 @@
 """API REST local para ejecutar descargas de metadata.
+Define la interfaz REST de la aplicación mediante FastAPI.
+Expone los endpoints HTTP que permiten:
+-Solicitar la descarga de metadata
+-Consultar el estado de los trabajos
+-Descargar los archivos generados
+También administra la ejecución de los procesos en segundo plano y mantiene sus estados:
+queued, running, completed y failed de forma segura ante accesos concurrentes.
+
+api.py recibe solicitudes HTTP y administra los trabajos y service.py realiza el trabajo concreto.
 
 Limitaciones:
 - Los estados se pierden al reiniciar el servidor.
@@ -60,6 +69,7 @@ jobs = {}
 
 #Objeto de bloqueo que asegura que solo un hilo pueda acceder y modificar el diccionario 
 # de trabajos a la vez, evitando condiciones de carrera y garantizando la coherencia de los datos.
+# jobs_lock es una instancia de 
 jobs_lock = Lock() 
 
 
@@ -77,9 +87,14 @@ def execute_download(job_id: str, project_key: str):
     Función que ejecuta el servicio de descarga de metadata y registra su # resultado en el diccionario de trabajos.
     """
     # Actualiza el estado del trabajo a "running" antes de iniciar la descarga.
+    # El bloque with jobs_lock bloquea el acceso al diccionario de trabajos mientras se actualiza el estado,
+    # evitando que otros hilos lean o escriban en el diccionario al mismo tiempo.
+    # Solo un hilo a la vez puede actualizar el diccionario de trabajos (jobs).
+    # Si un hilo esta actualizando los demás deben esperar.
     with jobs_lock:
         jobs[job_id]["status"] = "running"
 
+    # Se ejecuta una vez actualizado el estado del trabajo, para que otros hilos puedan leerlo y saber que la descarga está en progreso.
     # Intenta ejecutar la función de descarga de metadata y captura cualquier excepción que ocurra.
     try:
         result = download_metadata(project_key)
@@ -106,19 +121,21 @@ def execute_download(job_id: str, project_key: str):
             })
 
 #Define la instancia de la aplicación FastAPI, con un título y
-#  una versión para la documentación automática de la API.
+# una versión para la documentación automática de la API.
 app = FastAPI(
     title="MicroStrategy Metadata Downloader",
     version="0.1.0",
 ) 
 
-
+# @ indica que se está definiendo un decorador, que es una función que modifica el comportamiento de otra función.
+# app es la instacia de la calse FastAPI definida mas arriba
+# post es un método de app que regitra una ruta para manejar solicitudes HTTP POST.
+# /jobs es la dirección del endpoint
+# status_code = 202 es el código HTTP que devuelve cuando la solicitud se procesa correctamente
+# con este decorador le indicamos a FastAPI que cuando reciba un solicitud POST en la ruta "/jobs"
+# ejecute la función create_job y devuelva un código de estado 202 (Accepted) si la solicitud es válida.
+#Endpoint para crear un nuevo trabajo de descarga de metadata.
 @app.post("/jobs", status_code=202)
-"""
-Endpoint para crear un nuevo trabajo de descarga de metadata.
-app es la instancia de FastAPI, y @app.post("/jobs") 
-indica que esta función se ejecutará cuando se haga una solicitud POST a la ruta "/jobs".
-"""
 def create_job(
     request: DownloadRequest, #El parametro request es un objeto de la clase DownloadRequest que contiene la clave del proyecto.
     background_tasks: BackgroundTasks, #El parametro background_tasks es un objeto que permite ejecutar tareas en segundo plano, como la descarga de metadata, sin bloquear la respuesta al cliente.
@@ -166,11 +183,9 @@ def create_job(
         "status": "queued",
     }
 
-
+# Endpoint para obtener el estado y un resumen de un trabajo de descarga específico.
 @app.get("/jobs/{job_id}")
-"""
- Endpoint para obtener el estado y un resumen de un trabajo de descarga específico.
-"""
+
 def get_job(job_id: str):
 
     """Devuelve el estado y un resumen sin rutas internas del servidor."""
@@ -207,11 +222,8 @@ def get_job(job_id: str):
 
     return response
 
-
+#  Endpoint para descargar el resultado de un trabajo de descarga finalizado.
 @app.get("/jobs/{job_id}/result")
-"""
- Endpoint para descargar el resultado de un trabajo de descarga finalizado.
-"""
 def get_result(job_id: str):
     """Descarga el JSON de un trabajo finalizado."""
 
