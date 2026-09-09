@@ -1,0 +1,34 @@
+{
+  "information": {
+    "dateCreated": "2018-12-03T18:32:12.576Z",
+    "dateModified": "2025-01-06T12:40:16.715Z",
+    "versionId": "FCD1E407B946A0C4698EC4BF92F75971",
+    "acg": 255,
+    "primaryLocale": "en-US",
+    "objectId": "4B36BB5F4843105F55C1DA85675D9165",
+    "subType": "filter",
+    "name": "Tipo de Comprobante - Recarga",
+    "description": "Tipo de comprobante In List(RCG:Recarga Subscripcion)"
+  },
+  "qualification": {
+    "text": "{Tipo de Comprobante} = RCG:Recarga Subscripción",
+    "tree": {
+      "type": "predicate_element_list",
+      "predicateId": "A489BA80A6884ECC9CCA3EAC857929A5",
+      "predicateTree": {
+        "attribute": {
+          "objectId": "E8AF924D4D5495E51828528A19051291",
+          "subType": "attribute",
+          "name": "Tipo de Comprobante"
+        },
+        "elements": [
+          {
+            "display": "RCG:Recarga Subscripción",
+            "elementId": "h5"
+          }
+        ],
+        "function": "in"
+      }
+    }
+  }
+}

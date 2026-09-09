@@ -1,0 +1,153 @@
+{
+  "information": {
+    "dateCreated": "2018-08-07T17:18:28.000Z",
+    "dateModified": "2026-07-31T01:36:02.813Z",
+    "versionId": "63DD674B1040E1E67B4981808C435B3F",
+    "acg": 255,
+    "primaryLocale": "en-US",
+    "objectId": "2FE256AB41C033EFDD200E8262214EFE",
+    "subType": "attribute",
+    "name": "Tipo de Suscripcion",
+    "description": "Clasificacion definida en T3 para la suscripcion"
+  },
+  "forms": [
+    {
+      "id": "45C11FA478E745FEA08D781CEA190FE5",
+      "name": "ID",
+      "category": "ID",
+      "type": "system",
+      "displayFormat": "number",
+      "dataType": {
+        "type": "integer",
+        "precision": 2,
+        "scale": -2147483648
+      },
+      "expressions": [
+        {
+          "expressionId": "90A9F24649CD41DDAAC20C88EBBEAA28",
+          "expression": {
+            "text": "Tipo_Suscripcion_ID"
+          },
+          "tables": [
+            {
+              "objectId": "33F916C44C7D144C5FF67EA20CB187B8",
+              "subType": "logical_table",
+              "name": "D_TIPO_SUSCRIPCION"
+            },
+            {
+              "objectId": "A84013DF4C78104501E7B3BC6E1421C1",
+              "subType": "logical_table",
+              "name": "F_PS_SUSCRIPCION_D_VW"
+            }
+          ]
+        }
+      ],
+      "alias": "Tipo_Suscripcion_ID",
+      "lookupTable": {
+        "objectId": "33F916C44C7D144C5FF67EA20CB187B8",
+        "subType": "logical_table",
+        "name": "D_TIPO_SUSCRIPCION"
+      }
+    },
+    {
+      "id": "CCFBE2A5EADB4F50941FB879CCF1721C",
+      "name": "DESC",
+      "category": "DESC",
+      "type": "system",
+      "displayFormat": "text",
+      "dataType": {
+        "type": "n_var_char",
+        "precision": 50,
+        "scale": -2147483648
+      },
+      "expressions": [
+        {
+          "expressionId": "98A22937243946ACB5169E7873B4FF89",
+          "expression": {
+            "text": "Tipo_Suscripcion_DE"
+          },
+          "tables": [
+            {
+              "objectId": "33F916C44C7D144C5FF67EA20CB187B8",
+              "subType": "logical_table",
+              "name": "D_TIPO_SUSCRIPCION"
+            }
+          ]
+        }
+      ],
+      "alias": "Tipo_Suscripcion_DE",
+      "lookupTable": {
+        "objectId": "33F916C44C7D144C5FF67EA20CB187B8",
+        "subType": "logical_table",
+        "name": "D_TIPO_SUSCRIPCION"
+      }
+    }
+  ],
+  "attributeLookupTable": {
+    "objectId": "33F916C44C7D144C5FF67EA20CB187B8",
+    "subType": "logical_table",
+    "name": "D_TIPO_SUSCRIPCION"
+  },
+  "keyForm": {
+    "id": "45C11FA478E745FEA08D781CEA190FE5",
+    "name": "ID"
+  },
+  "displays": {
+    "reportDisplays": [
+      {
+        "id": "CCFBE2A5EADB4F50941FB879CCF1721C",
+        "name": "DESC"
+      }
+    ],
+    "browseDisplays": [
+      {
+        "id": "CCFBE2A5EADB4F50941FB879CCF1721C",
+        "name": "DESC"
+      }
+    ]
+  },
+  "sorts": {},
+  "relationships": [
+    {
+      "parent": {
+        "objectId": "2FE256AB41C033EFDD200E8262214EFE",
+        "subType": "attribute",
+        "name": "Tipo de Suscripcion"
+      },
+      "child": {
+        "objectId": "764FA25244C7BFD2F8D9F9B9B2E27CB8",
+        "subType": "attribute",
+        "name": "Suscripcion Historico ID"
+      },
+      "relationshipTable": {
+        "objectId": "A84013DF4C78104501E7B3BC6E1421C1",
+        "subType": "logical_table",
+        "name": "F_PS_SUSCRIPCION_D_VW"
+      },
+      "relationshipType": "one_to_many"
+    },
+    {
+      "parent": {
+        "objectId": "2FE256AB41C033EFDD200E8262214EFE",
+        "subType": "attribute",
+        "name": "Tipo de Suscripcion"
+      },
+      "child": {
+        "objectId": "580D52CC4D55EE96F7726B8B894EA7A4",
+        "subType": "attribute",
+        "name": "Tipo Suscripcion ID"
+      },
+      "relationshipTable": {
+        "objectId": "33F916C44C7D144C5FF67EA20CB187B8",
+        "subType": "logical_table",
+        "name": "D_TIPO_SUSCRIPCION"
+      },
+      "relationshipType": "one_to_many"
+    }
+  ],
+  "nonAggregatable": false,
+  "applySecurityFiltersToElementBrowsing": false,
+  "enableElementCaching": true,
+  "elementDisplayOption": "limited_elements",
+  "elementDisplayLimit": 100
+}

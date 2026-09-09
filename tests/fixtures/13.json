@@ -1,0 +1,94 @@
+{
+  "information": {
+    "dateCreated": "2018-07-20T13:19:39.000Z",
+    "dateModified": "2020-07-21T21:12:14.680Z",
+    "versionId": "55F5CDC011EAB64200000080EF75DF54",
+    "acg": 255,
+    "primaryLocale": "en-US",
+    "objectId": "44F9C14B4192D668C33510AAC2BE1251",
+    "subType": "fact",
+    "name": "Suscripciones CA"
+  },
+  "dataType": {
+    "type": "integer",
+    "precision": 2,
+    "scale": 0
+  },
+  "expressions": [
+    {
+      "expressionId": "02C7C2F55A93438A8BCDAD0B8B44E7AF",
+      "expression": {
+        "text": "Suscripcion_CA"
+      },
+      "tables": [
+        {
+          "objectId": "C74E6E424E7DD03B60F160A74C45C16A",
+          "subType": "logical_table",
+          "name": "F_AG_Suscripcion_01_D_VW"
+        },
+        {
+          "objectId": "512AD76240D6E90B96E549880581F6F4",
+          "subType": "logical_table",
+          "name": "F_AG_Suscripcion_02_D_VW"
+        },
+        {
+          "objectId": "A84013DF4C78104501E7B3BC6E1421C1",
+          "subType": "logical_table",
+          "name": "F_PS_SUSCRIPCION_D_VW"
+        },
+        {
+          "objectId": "DE60EF3544618CA627540C878DFD4C0D",
+          "subType": "logical_table",
+          "name": "F_AG_Suscripcion_03_D_VW"
+        }
+      ]
+    },
+    {
+      "expressionId": "D0A785B966B94F5CAC6A04C675D4DF44",
+      "expression": {
+        "text": "Suscripcion_CA"
+      },
+      "tables": [
+        {
+          "objectId": "01B67D04409837ECEE77618A6C21266D",
+          "subType": "logical_table",
+          "name": "F_AG_Suscripcion_04_D_VW"
+        },
+        {
+          "objectId": "F54F0169480496ACD9ED15B0F1620DD2",
+          "subType": "logical_table",
+          "name": "F_AG_Suscripcion_05_D_VW"
+        }
+      ]
+    }
+  ],
+  "extensions": [],
+  "entryLevel": [
+    {
+      "objectId": "9360EB0641A3E19F4578C1B528939477",
+      "subType": "attribute",
+      "name": "Fecha"
+    },
+    {
+      "objectId": "1F1FF9E245C2D8D7F08E6F959ED1288E",
+      "subType": "attribute",
+      "name": "Flag Bono Activo Tenencia Familia"
+    },
+    {
+      "objectId": "5A8DC0F94FBAFF1D72865B98BDABC384",
+      "subType": "attribute",
+      "name": "Parque Tecnico ID"
+    },
+    {
+      "objectId": "EABCB0684291600237E1B3A1E3D7F742",
+      "subType": "attribute",
+      "name": "Segmento Tenencia Movistar Con Todo"
+    },
+    {
+      "objectId": "764FA25244C7BFD2F8D9F9B9B2E27CB8",
+      "subType": "attribute",
+      "name": "Suscripcion Historico ID"
+    }
+  ],
+  "alias": "Suscripciones_CA"
+}

@@ -1,0 +1,167 @@
+{
+  "information": {
+    "dateCreated": "2018-08-08T19:38:56.000Z",
+    "dateModified": "2020-06-26T16:51:54.685Z",
+    "versionId": "572B579711EAB7CD00000080EF452733",
+    "acg": 255,
+    "primaryLocale": "en-US",
+    "objectId": "018F254040F401995CCA988822D55C98",
+    "subType": "metric",
+    "name": "Suscripciones",
+    "description": "Cuantificacion de suscripciones (Activas, Canceladas, Suspendidas)"
+  },
+  "expression": {
+    "text": "Sum({Suscripciones CA})"
+  },
+  "dimty": {
+    "dimtyUnits": [
+      {
+        "dimtyUnitType": "report_base_level",
+        "aggregation": "normal",
+        "filtering": "apply",
+        "groupBy": true
+      },
+      {
+        "dimtyUnitType": "attribute",
+        "target": {
+          "objectId": "9360EB0641A3E19F4578C1B528939477",
+          "subType": "attribute",
+          "name": "Fecha"
+        },
+        "aggregation": "last_in_relationship",
+        "filtering": "apply",
+        "groupBy": true
+      }
+    ],
+    "excludeAttribute": false,
+    "allowAddingUnit": true
+  },
+  "conditionality": {
+    "filter": {
+      "objectId": "E06E42694F4A3AADE28333A3999A5183",
+      "subType": "filter",
+      "name": "Max Fecha Suscripcion"
+    },
+    "embedMethod": "metric_into_report_filter",
+    "removeElements": false
+  },
+  "metricSubtotals": [
+    {
+      "definition": {
+        "objectId": "96C487AF4D12472A910C1ACACFB56EFB",
+        "subType": "system_subtotal",
+        "name": "Total"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "078C50834B484EE29948FA9DD5300ADF",
+        "subType": "system_subtotal",
+        "name": "Count"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "B328C60462634223B2387D4ADABEEB53",
+        "subType": "system_subtotal",
+        "name": "Average"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "00B7BFFF967F42C4B71A4B53D90FB095",
+        "subType": "system_subtotal",
+        "name": "Minimum"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "B1F4AA7DE683441BA559AA6453C5113E",
+        "subType": "system_subtotal",
+        "name": "Maximum"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "54E7BFD129514717A92BC44CF1FE5A32",
+        "subType": "system_subtotal",
+        "name": "Product"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "83A663067F7E43B2ABF67FD38ECDC7FE",
+        "subType": "system_subtotal",
+        "name": "Median"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "36226A4048A546139BE0AF5F24737BA8",
+        "subType": "system_subtotal",
+        "name": "Mode"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "7FBA414995194BBAB2CF1BB599209824",
+        "subType": "system_subtotal",
+        "name": "Standard Deviation"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "1769DBFCCF2D4392938E40418C6E065E",
+        "subType": "system_subtotal",
+        "name": "Variance"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "E1853D5A36C74F59A9F8DEFB3F9527A1",
+        "subType": "system_subtotal",
+        "name": "Geometric Mean"
+      }
+    },
+    {
+      "definition": {
+        "objectId": "F225147A4CA0BB97368A5689D9675E73",
+        "subType": "system_subtotal",
+        "name": "Aggregation"
+      },
+      "implementation": {
+        "objectId": "96C487AF4D12472A910C1ACACFB56EFB",
+        "subType": "system_subtotal",
+        "name": "Total"
+      }
+    }
+  ],
+  "aggregateFromBase": false,
+  "formulaJoinType": "default",
+  "smartTotal": "decomposable_false",
+  "dataType": {
+    "type": "reserved",
+    "precision": 0,
+    "scale": 0
+  },
+  "format": {
+    "header": [],
+    "values": [
+      {
+        "type": "number_category",
+        "value": "0"
+      },
+      {
+        "type": "number_decimal_places",
+        "value": "0"
+      },
+      {
+        "type": "number_format",
+        "value": "#,##0;(#,##0)"
+      }
+    ]
+  },
+  "subtotalFromBase": false,
+  "metricFormatType": "reserved",
+  "thresholds": []
+}

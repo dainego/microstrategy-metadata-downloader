@@ -1,276 +1,182 @@
+"""Búsqueda común y aplanamiento específico por tipo de objeto."""
 # Funciones para consultar metadata de MicroStrategy, reconstruir las rutas
-# de carpetas y transformar los atributos en registros planos exportables.
+# de carpetas y transformar los objetos en registros planos exportables.
 # La autenticación y la escritura de archivos se gestionan en otros módulos.
-
-
-from microstrategy_client import MicroStrategyClient
 from utils import clean_text
 
+COMMON_FIELDS = ['objectId', 'name', 'subType', 'description', 'folder',
+                 'model', 'submodel', 'submodel1', 'submodel2', 'submodel3']
+TYPE_FIELDS = {
+    12: ['formName', 'formCategory', 'displayFormat', 'expression',
+         'tableObjectId', 'tableSubType', 'tableName'],
+    4: ['expression', 'filterObjectId', 'filterSubType', 'filterName'],
+    1: ['qualification', 'treeType', 'predicateObjectId', 'predicateSubType',
+        'predicateName', 'function', 'elementDisplay', 'elementId'],
+    13: ['expression', 'tableName'],
+}
 
-def list_objects(
-    client: MicroStrategyClient,
-    object_type: int,
-    root: str,
-):
-    """
-    Crea una búsqueda de objetos por tipo y recupera sus resultados como lista y como árbol.
 
-    Parámetros:
-        base_url: URL base de la API de MicroStrategy.
-        auth_token: Token de una sesión autenticada.
-        cookies: Cookies de la sesión.
-        logger: Logger utilizado para registrar las llamadas y sus errores.
-        project_id: Identificador del proyecto que se consultará.
-        object_type: Tipo de objeto que se desea buscar.
-        root: Identificador de la carpeta raíz de la búsqueda.
+def read_response(client, **kwargs):
+    """Lee y cierra la respuesta; la ausencia de respuesta aborta la búsqueda."""
+    # Realiza la consulta utilizando la sesión autenticada del cliente.
+    response = client.api_call(**kwargs)
+    # Comprueba que exista una respuesta antes de intentar interpretar el JSON.
+    if response is None:
+        raise RuntimeError('No se obtuvo respuesta de MicroStrategy.')
+    try:
+        return response.json()
+    # Cierra la respuesta HTTP incluso si falla la interpretación del JSON.
+    finally:
+        response.close()
 
-    Retorno:
-        Tupla (objects, tree) con las respuestas JSON deserializadas:
-        la lista de objetos y el árbol utilizado para reconstruir sus rutas.
 
-    Consideraciones:
-        Actualmente no comprueba si api_call() devuelve None antes de acceder
-        a response.json(). Los errores de respuesta o estructura se propagan.
-    """
-    
-
+def list_objects(client, object_type, root):
+    """Busca por tipo y raíz; devuelve la lista y su árbol de carpetas."""
     # Inicia la búsqueda con el tipo, la visibilidad y la raíz indicados.
-    response = client.api_call(
-        method="POST",
-        endpoint="/metadataSearches/results",
-        params={
-            "domain": 2,
-            "type": object_type,
-            "scope": "all",
-            "visibility": "VISIBLE",
-            "root": root,
-        },
-    )
-
+    search = read_response(client, method='POST', endpoint='/metadataSearches/results',
+        params={'domain': 2, 'type': object_type, 'scope': 'all',
+                'visibility': 'VISIBLE', 'root': root})
     # Reutiliza el identificador de búsqueda en las siguientes consultas.
-    search_id = response.json()["id"]
-
+    params = {'searchId': search['id'], 'limit': -1}
     # Recupera los resultados usando los parámetros de la implementación actual.
-    # El timeout se expresa en segundos y se pasa a api_call().
-    response = client.api_call(
-        method="GET",
-        endpoint="/metadataSearches/results",
-        timeout=7200,
-        params={
-            "searchId": search_id,
-            "limit": -1,
-        },
-    )
-
-    objects = response.json()
-
+    # El timeout se expresa en segundos y se pasa al cliente HTTP.
+    objects = read_response(client, method='GET', endpoint='/metadataSearches/results',
+                            params=params, timeout=7200)
     # Recupera la representación jerárquica de la misma búsqueda.
-    response = client.api_call(
-        method="GET",
-        endpoint="/metadataSearches/results/tree",
-        timeout=7200,
-        params={
-            "searchId": search_id,
-            "limit": -1,
-        },
-    )
-
-    tree = response.json()
-
+    tree = read_response(client, method='GET', endpoint='/metadataSearches/results/tree',
+                         params=params, timeout=7200)
+    if not isinstance(objects, list) or not isinstance(tree, dict):
+        raise ValueError('Estructura de resultados de búsqueda inesperada.')
     return objects, tree
 
 
-def get_attribute_details(
-    client: MicroStrategyClient,
-    attribute_id: str,
-):
-    """
-    Consulta el detalle de un atributo mediante su identificador.
-
-    Parámetros:
-        base_url: URL base de la API.
-        auth_token: Token de autenticación.
-        cookies: Cookies de la sesión.
-        logger: Logger para registrar errores y advertencias.
-        project_id: Identificador del proyecto.
-        attribute_id: Identificador del atributo que se consultará.
-
-    Retorno:
-        Detalle deserializado de la respuesta JSON, o None si api_call()
-        devuelve None. Los errores al interpretar el JSON no se capturan aquí.
-    """
-
-    response = client.api_call(
-        method="GET",
-        endpoint=f"/model/attributes/{attribute_id}",
-        timeout=1800,
-    )
-
-    # Permite omitir el atributo cuando la llamada HTTP no obtiene respuesta
-    # utilizable. Se conserva el mensaje original del registro de ejecución.
-    if response is None:
-        client.logger.warning(
-            "Se omite el atributo %s porque no se obtuvo respuesta.",
-            attribute_id,
-        )
-        return None
-
-    return response.json()
+def get_all_object_details(client, object_ids, settings):
+    """Mantiene el orden de IDs y representa los detalles fallidos con None."""
+    details = []
+    for position, object_id in enumerate(object_ids, 1):
+        # Consulta el endpoint correspondiente al tipo para cada ID seleccionado.
+        response = client.api_call(method='GET',
+            endpoint=settings['endpoint'].format(object_id=object_id),
+            params=settings.get('params') or None, timeout=1800)
+        # Permite omitir el objeto cuando la llamada HTTP no obtiene una respuesta
+        # utilizable. None mantiene la correspondencia entre IDs y detalles.
+        detail = None
+        if response is not None:
+            try:
+                candidate = response.json()
+                # Comprueba que la respuesta contenga información del objeto solicitado.
+                if (isinstance(candidate, dict)
+                        and isinstance(candidate.get('information'), dict)
+                        and candidate['information'].get('objectId') == object_id):
+                    detail = candidate
+            except ValueError:
+                pass
+            finally:
+                response.close()
+        # Registra las consultas fallidas para que el servicio pueda contarlas.
+        if detail is None:
+            client.logger.warning('No se pudo obtener un detalle válido para %s.', object_id)
+        details.append(detail)
+        client.logger.info('Procesado %s de %s - %s', position, len(object_ids), object_id)
+    return details
 
 
-def get_all_attribute_details(
-    client: MicroStrategyClient,
-    attribute_ids,
-):
-    """
-    Recupera secuencialmente los detalles de los atributos seleccionados.
-
-    Parámetros:
-        base_url: URL base de la API.
-        auth_token: Token de autenticación.
-        cookies: Cookies de la sesión.
-        logger: Logger para registrar el progreso y los errores.
-        project_id: Identificador del proyecto.
-        attribute_ids: Secuencia de identificadores de atributos.
-
-    Retorno:
-        Lista en el mismo orden que attribute_ids. Incluye None cuando una
-        consulta devuelve ese valor; el aplanamiento lo omite posteriormente.
-
-    Consideraciones:
-        El progreso cuenta consultas procesadas, no necesariamente exitosas.
-        Una excepción no capturada interrumpe el recorrido.
-    """
-
-    attributes = []
-
-    for position, attribute_id in enumerate(attribute_ids, start=1):
-
-        attribute = get_attribute_details(
-            client,
-            attribute_id,
-        )
-
-        client.logger.info(
-            "Procesado %s de %s - %s",
-            position,
-            len(attribute_ids),
-            attribute_id,
-        )
-
-        attributes.append(attribute)
-
-    return attributes
+def parse_folder(folder, prefix='Schema Objects/Attributes'):
+    """Retira el prefijo configurable del tipo y conserva cinco niveles."""
+    fields = ['model', 'submodel', 'submodel1', 'submodel2', 'submodel3']
+    # Divide la ruta y elimina componentes vacíos.
+    parts = [p.strip() for p in (folder or '').replace('\\', '/').split('/') if p.strip()]
+    roots = [p.strip() for p in prefix.split('/') if p.strip()]
+    # Elimina el prefijo de carpeta del tipo seleccionado, si está presente.
+    if roots and parts[:len(roots)] == roots:
+        parts = parts[len(roots):]
+    # Asigna los niveles en orden; los niveles ausentes conservan None.
+    return {key: parts[i] if i < len(parts) else None for i, key in enumerate(fields)}
 
 
-def flatten_attribute_details(attribute_list, folder_map):
-    """
-    Transforma los detalles anidados de atributos en una lista de diccionarios.
+def expression_rows(detail, attribute=False):
+    # Recorre los forms del atributo y las expresiones de cada form.
+    # En facts las expresiones se encuentran directamente en el objeto.
+    forms = (detail.get('forms') or [{}]) if attribute else [detail]
+    for form in forms:
+        # Conserva una fila con los datos disponibles aunque no haya expresiones.
+        for expression in form.get('expressions') or [{}]:
+            # Repite los datos para cada tabla asociada. Si no hay tablas, conserva
+            # la expresión con campos de tabla vacíos.
+            for table in expression.get('tables') or [{}]:
+                row = {'expression': (expression.get('expression') or {}).get('text'),
+                       'tableName': table.get('name')}
+                if attribute:
+                    row.update(formName=form.get('name'), formCategory=form.get('category'),
+                               displayFormat=form.get('displayFormat'),
+                               tableObjectId=table.get('objectId'), tableSubType=table.get('subType'))
+                yield row
 
-    Parámetros:
-        attribute_list: Lista de detalles de atributos; puede incluir None.
-        folder_map: Diccionario que relaciona el ID de cada objeto con su ruta.
 
-    Retorno:
-        Registros planos con datos del atributo, carpeta, modelo, submodelos,
-        forma, expresión y tabla. Genera una fila por combinación recorrida
-        de atributo, forma, expresión y tabla. Si la expresión no tiene tablas,
-        genera una fila con los campos de tabla en None.
+def metric_rows(detail):
+    # La métrica combina su expresión y el filtro condicional en una misma fila.
+    # Si no tiene filtro, los campos correspondientes quedan vacíos.
+    condition = (detail.get('conditionality') or {}).get('filter') or {}
+    yield {'expression': (detail.get('expression') or {}).get('text'),
+           'filterObjectId': condition.get('objectId'),
+           'filterSubType': condition.get('subType'), 'filterName': condition.get('name')}
 
-    Consideraciones:
-        Omite los detalles None, los atributos sin formas y las formas sin
-        expresiones. Solo normaliza el texto de la descripción.
-    """
-    flat_attributes = []
 
-    for attribute in attribute_list:
+def filter_rows(detail):
+    """Una fila por elemento; recorre nodos anidados sin cruzar predicados."""
+    qualification = detail.get('qualification') or {}
 
+    # Recorre el árbol de calificación para encontrar predicados anidados.
+    def walk(node):
+        if isinstance(node, list):
+            for child in node:
+                yield from walk(child)
+        elif isinstance(node, dict):
+            predicate = node.get('predicateTree')
+            if isinstance(predicate, dict):
+                # El ID, subtipo y nombre pertenecen al objeto dentro de predicateTree.
+                target = predicate.get('attribute') or predicate.get('metric') or {}
+                # Genera una fila por elemento del predicado, sin cruzarlo con otros predicados.
+                for element in predicate.get('elements') or [{}]:
+                    yield {'qualification': qualification.get('text'), 'treeType': node.get('type'),
+                           'predicateObjectId': target.get('objectId'),
+                           'predicateSubType': target.get('subType'), 'predicateName': target.get('name'),
+                           'function': predicate.get('function'),
+                           'elementDisplay': element.get('display'), 'elementId': element.get('elementId')}
+            for key, child in node.items():
+                if key != 'elements' and isinstance(child, (dict, list)):
+                    yield from walk(child)
+
+    rows = list(walk(qualification.get('tree') or {}))
+    yield from rows or [{'qualification': qualification.get('text'),
+                         'treeType': (qualification.get('tree') or {}).get('type')}]
+
+
+FLATTENERS = {12: lambda d: expression_rows(d, attribute=True),
+              4: metric_rows, 1: filter_rows, 13: expression_rows}
+
+
+def flatten_object_details(details, folder_map, object_type, folder_prefix):
+    """Produce filas uniformes por tipo, con textos normalizados y campos comunes."""
+    fields = COMMON_FIELDS + TYPE_FIELDS[object_type]
+    rows = []
+    for detail in details:
         # Omite las consultas fallidas representadas por None.
-        if attribute is None:
+        if detail is None:
             continue
-
-        information = attribute.get("information", {})
-
-        object_id = information.get("objectId")
-        subtype = information.get("subType")
-        attribute_name = information.get("name")
-        description = information.get("description")
-
-        # Normaliza saltos de línea, tabulaciones y espacios de la descripción.
-        if description:
-             description = clean_text(description)
-
+        info = detail['information']
+        folder = folder_map.get(info.get('objectId'))
+        common = {key: info.get(key) for key in COMMON_FIELDS[:4]}
         # Descompone la ruta en modelo y los cuatro niveles de submodelo
         # definidos en esta versión: submodel, submodel1, submodel2 y submodel3.
-        folder = folder_map.get(object_id)
-        folder_fields = parse_folder(folder)
-        model = folder_fields.get("model")
-        submodel = folder_fields.get("submodel")
-        submodel1 = folder_fields.get("submodel1")
-        submodel2 = folder_fields.get("submodel2")
-        submodel3 = folder_fields.get("submodel3")
-
-        # Recorre los forms del atributo y las expresiones de cada form.
-        for form in attribute.get("forms", []):
-
-            form_name = form.get("name")
-            form_category = form.get("category")
-            display_format = form.get("displayFormat")
-
-            for expression_item in form.get("expressions", []):
-
-                expression_text = (
-                    expression_item
-                    .get("expression", {})
-                    .get("text")
-                )
-
-                tables = expression_item.get("tables", [])
-
-                # Conserva la expresión como línea vacía aunque no tenga tablas asociadas.
-                if not tables:
-                    flat_attributes.append({
-                        "objectId": object_id,
-                        "subType": subtype,
-                        "name": attribute_name,
-                        "description": description,
-                        "folder": folder,
-                        "model": model,
-                        "submodel": submodel,
-                        "submodel1": submodel1,
-                        "submodel2": submodel2,
-                        "submodel3": submodel3,
-                        "formName": form_name,
-                        "formCategory": form_category,
-                        "displayFormat": display_format,
-                        "expression": expression_text,
-                        "tableName": None,
-                        "tableSubType": None
-                    })
-
-                else:
-                    # Repite los datos del atributo para cada tabla asociada.   
-                    for table in tables:
-                        flat_attributes.append({
-                            "objectId": object_id,
-                            "subType": subtype,
-                            "name": attribute_name,
-                            "description": description,
-                            "folder": folder,
-                            "model": model,
-                            "submodel": submodel,
-                            "submodel1": submodel1,
-                            "submodel2": submodel2,
-                            "submodel3": submodel3,                           
-                            "formName": form_name,
-                            "formCategory": form_category,
-                            "displayFormat": display_format,
-                            "expression": expression_text,
-                            "tableName": table.get("name"),
-                            "tableSubType": table.get("subType")
-                        })
-
-    return flat_attributes
+        common.update(folder=folder, **parse_folder(folder, folder_prefix))
+        for specific in FLATTENERS[object_type](detail):
+            values = {**common, **specific}
+            # Normaliza saltos de línea, tabulaciones y espacios de la descripción
+            # y del resto de los textos antes de exportarlos.
+            rows.append({key: clean_text(values.get(key)) if isinstance(values.get(key), str)
+                         else values.get(key) for key in fields})
+    return rows
 
 
 def build_folder_map(search_tree, object_ids):
@@ -322,59 +228,3 @@ def build_folder_map(search_tree, object_ids):
     return folder_map
 
 
-def parse_folder(folder):
-    """
-    Descompone una ruta de carpeta en modelo y niveles de submodelo.
-
-    Parámetros:
-        folder: Ruta como cadena, o None si no se conoce la carpeta.
-
-    Retorno:
-        Diccionario con model, submodel, submodel1, submodel2 y submodel3.
-        Los niveles que no están presentes conservan el valor None.
-
-    Consideraciones:
-        Normaliza los separadores de ruta y elimina componentes vacíos.
-        Quita el prefijo Schema Objects/Attributes solo si coincide exactamente
-        con los dos primeros componentes, respetando mayúsculas y minúsculas.
-        Si no coincide, interpreta la ruta completa como niveles del modelo.
-        Los niveles que exceden los cinco campos disponibles se ignoran.
-    """
-
-    root_parts = ["Schema Objects", "Attributes"]
-
-    result = {
-        "model": None,
-        "submodel": None,
-        "submodel1": None,
-        "submodel2": None,
-        "submodel3": None
-    }
-
-    if not folder:
-        return result
-
-    # Divide la ruta y elimina componentes vacíos
-    parts = [
-        part.strip()
-        for part in folder.replace("\\", "/").split("/")
-        if part.strip()
-    ]
-
-    # Elimina la raíz Schema Objects/Attributes, si está presente
-    if parts[:2] == root_parts:
-        parts = parts[2:]
-
-    field_names = [
-        "model",
-        "submodel",
-        "submodel1",
-        "submodel2",
-        "submodel3"
-    ]
-
-    # Asigna los niveles en orden; zip() termina al agotar la lista más corta.
-    for field_name, value in zip(field_names, parts):
-        result[field_name] = value
-
-    return result

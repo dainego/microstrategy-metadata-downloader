@@ -1,58 +1,46 @@
-"""Punto de entrada por consola del descargador de metadata."""
-
-from config import PROJECTS
+"""Interfaz de consola para una descarga por proyecto y tipo de objeto."""
+import argparse
+import config
 from service import download_metadata
 
 
 def main():
-    """Solicita un proyecto y ejecuta la descarga de metadata."""
-
-    print("\nMicroStrategy Metadata Downloader")
-    print("---------------------------------")
-
-    for project_key, project in PROJECTS.items():
-        print(f"{project_key}) {project['name']}")
-
-    print("0) Salir")
-
-    project_key = input("\nSeleccione un proyecto: ").strip()
-
-    if project_key == "0":
-        print("Programa finalizado.")
-        return
-
-    if project_key not in PROJECTS:
-        print("La opción seleccionada no es válida.")
-        return
-
-    project_name = PROJECTS[project_key]["name"]
-
-    print(f"\nIniciando descarga del proyecto {project_name}...")
-
+    # Define los parámetros de consola para seleccionar proyecto y tipo de objeto.
+    parser = argparse.ArgumentParser(description='MicroStrategy Metadata Downloader')
+    parser.add_argument('--project-key', choices=config.PROJECTS)
+    parser.add_argument('--object-type', type=int, choices=config.OBJECT_TYPES, default=12)
+    args = parser.parse_args()
+    project_key = args.project_key
+    # Si no se indicó proyecto como parámetro, muestra el menú de proyectos.
+    if project_key is None:
+        for key, project in config.PROJECTS.items():
+            print(f"{key}) {project['name']}")
+        project_key = input('Proyecto (0 para salir): ').strip()
+        if project_key == '0':
+            return
+    # Valida el tipo de objeto y la configuración necesaria para iniciar la descarga.
+    settings = config.get_object_settings(args.object_type)
+    if project_key not in config.PROJECTS:
+        parser.error('Proyecto inválido.')
+    if not config.PROJECTS[project_key].get(settings['root_key']):
+        parser.error(f"Falta configurar {settings['root_key']} para el proyecto {project_key}.")
+    # Invoca el mismo servicio que utiliza la API, sin duplicar la lógica de descarga.
     try:
-        result = download_metadata(project_key)
-
+        result = download_metadata(project_key, args.object_type)
     except Exception:
-        print("\nLa descarga falló. Revise el archivo de log.")
-        return
-
-    print("\nDescarga finalizada.")
+        print('La descarga falló. Revisá el archivo de log.')
+        raise SystemExit(1)
+    # Muestra el resumen de ejecución, los archivos generados y las advertencias.
     print(f"Estado: {result['status']}")
-    print(f"Atributos descargados: {result['attributes_downloaded']}")
-    print(f"Atributos fallidos: {result['attributes_failed']}")
+    print(f"Objetos descargados: {result['objects_downloaded']}")
+    print(f"Objetos fallidos: {result['objects_failed']}")
     print(f"Filas exportadas: {result['rows_exported']}")
     print(f"Duración: {result['duration_seconds']} segundos")
-    print(f"Archivo JSON: {result['files']['json']}")
-
-    if result["files"]["txt"]:
-        print(f"Archivo TXT: {result['files']['txt']}")
-
-    if result["warnings"]:
-        print("\nAdvertencias:")
-
-        for warning in result["warnings"]:
-            print(f"- {warning}")
+    for format, path in result['files'].items():
+        print(f'{format.upper()}: {path}')
+    for warning in result['warnings']:
+        print(f'Advertencia: {warning}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
