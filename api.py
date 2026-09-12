@@ -9,6 +9,8 @@ queued, running, completed y failed de forma segura ante accesos concurrentes.
 
 api.py recibe solicitudes HTTP y administra los trabajos y service.py realiza el trabajo concreto.
 
+Tiene logger aparte de service.py
+
 Limitaciones:
 - Los estados se pierden al reiniciar el servidor.
 - No incluye autenticación: usar únicamente en localhost.
@@ -44,7 +46,7 @@ from utils import setup_logger
 # Configura el logger para registrar errores y advertencias en un archivo.
 logger = setup_logger(
     name=f"{config.APP_NAME}.api",
-    log_file=config.LOG_FOLDER / "api.log",
+    log_file=config.LOG_FOLDER / f"{config.APP_NAME}_api.log",
     level=logging.INFO,
 )
 
@@ -87,7 +89,7 @@ def execute_download(job_id: str, project_key: str, object_type: int):
         jobs[job_id]["status"] = "running"
 
     # Se ejecuta una vez actualizado el estado del trabajo, para que otros hilos puedan leerlo y saber que la descarga está en progreso.
-    # Intenta ejecutar la función de descarga de metadata y captura cualquier excepción que ocurra.
+    # Intenta ejecutar la función download_metadata de service.py y captura cualquier excepción que ocurra.
     try:
         result = download_metadata(project_key, object_type)
 
@@ -170,7 +172,7 @@ def create_job(
     # Agrega la tarea de descarga a la cola de tareas en segundo plano,
     # pasando el identificador del trabajo, la clave del proyecto y el tipo de objeto.
     background_tasks.add_task(
-        execute_download,
+        execute_download, #funcion que invoca a download_metadata de service.py
         job_id,
         request.project_key,
         request.object_type,

@@ -2,10 +2,12 @@
 # Funciones para consultar metadata de MicroStrategy, reconstruir las rutas
 # de carpetas y transformar los objetos en registros planos exportables.
 # La autenticación y la escritura de archivos se gestionan en otros módulos.
+
 from utils import clean_text
 
 COMMON_FIELDS = ['objectId', 'name', 'subType', 'description', 'folder',
                  'model', 'submodel', 'submodel1', 'submodel2', 'submodel3']
+
 TYPE_FIELDS = {
     12: ['formName', 'formCategory', 'displayFormat', 'expression',
          'tableObjectId', 'tableSubType', 'tableName'],
@@ -16,7 +18,7 @@ TYPE_FIELDS = {
 }
 
 
-def read_response(client, **kwargs):
+def read_response(client, **kwargs):##**kwargs es un diccionario que permite recibir una cantidad variable de parámetros
     """Lee y cierra la respuesta; la ausencia de respuesta aborta la búsqueda."""
     # Realiza la consulta utilizando la sesión autenticada del cliente.
     response = client.api_call(**kwargs)
@@ -32,19 +34,25 @@ def read_response(client, **kwargs):
 
 def list_objects(client, object_type, root):
     """Busca por tipo y raíz; devuelve la lista y su árbol de carpetas."""
+
     # Inicia la búsqueda con el tipo, la visibilidad y la raíz indicados.
     search = read_response(client, method='POST', endpoint='/metadataSearches/results',
         params={'domain': 2, 'type': object_type, 'scope': 'all',
                 'visibility': 'VISIBLE', 'root': root})
+
     # Reutiliza el identificador de búsqueda en las siguientes consultas.
     params = {'searchId': search['id'], 'limit': -1}
+
     # Recupera los resultados usando los parámetros de la implementación actual.
     # El timeout se expresa en segundos y se pasa al cliente HTTP.
     objects = read_response(client, method='GET', endpoint='/metadataSearches/results',
                             params=params, timeout=7200)
+
     # Recupera la representación jerárquica de la misma búsqueda.
     tree = read_response(client, method='GET', endpoint='/metadataSearches/results/tree',
                          params=params, timeout=7200)
+
+    #Valida que la respuesta sea una lista y el árbol un diccionario
     if not isinstance(objects, list) or not isinstance(tree, dict):
         raise ValueError('Estructura de resultados de búsqueda inesperada.')
     return objects, tree
@@ -52,12 +60,15 @@ def list_objects(client, object_type, root):
 
 def get_all_object_details(client, object_ids, settings):
     """Mantiene el orden de IDs y representa los detalles fallidos con None."""
+
     details = []
     for position, object_id in enumerate(object_ids, 1):
+
         # Consulta el endpoint correspondiente al tipo para cada ID seleccionado.
         response = client.api_call(method='GET',
             endpoint=settings['endpoint'].format(object_id=object_id),
             params=settings.get('params') or None, timeout=1800)
+        
         # Permite omitir el objeto cuando la llamada HTTP no obtiene una respuesta
         # utilizable. None mantiene la correspondencia entre IDs y detalles.
         detail = None
@@ -70,12 +81,14 @@ def get_all_object_details(client, object_ids, settings):
                         and candidate['information'].get('objectId') == object_id):
                     detail = candidate
             except ValueError:
-                pass
+                pass #do nothing
             finally:
                 response.close()
+
         # Registra las consultas fallidas para que el servicio pueda contarlas.
         if detail is None:
             client.logger.warning('No se pudo obtener un detalle válido para %s.', object_id)
+
         details.append(detail)
         client.logger.info('Procesado %s de %s - %s', position, len(object_ids), object_id)
     return details
@@ -83,18 +96,23 @@ def get_all_object_details(client, object_ids, settings):
 
 def parse_folder(folder, prefix='Schema Objects/Attributes'):
     """Retira el prefijo configurable del tipo y conserva cinco niveles."""
+
     fields = ['model', 'submodel', 'submodel1', 'submodel2', 'submodel3']
+
     # Divide la ruta y elimina componentes vacíos.
     parts = [p.strip() for p in (folder or '').replace('\\', '/').split('/') if p.strip()]
     roots = [p.strip() for p in prefix.split('/') if p.strip()]
+
     # Elimina el prefijo de carpeta del tipo seleccionado, si está presente.
     if roots and parts[:len(roots)] == roots:
         parts = parts[len(roots):]
+
     # Asigna los niveles en orden; los niveles ausentes conservan None.
     return {key: parts[i] if i < len(parts) else None for i, key in enumerate(fields)}
 
 
 def expression_rows(detail, attribute=False):
+
     # Recorre los forms del atributo y las expresiones de cada form.
     # En facts las expresiones se encuentran directamente en el objeto.
     forms = (detail.get('forms') or [{}]) if attribute else [detail]
@@ -110,7 +128,7 @@ def expression_rows(detail, attribute=False):
                     row.update(formName=form.get('name'), formCategory=form.get('category'),
                                displayFormat=form.get('displayFormat'),
                                tableObjectId=table.get('objectId'), tableSubType=table.get('subType'))
-                yield row
+                yield row #se usa dentro de una función para convertirla en un generador: una función que entrega valores de a uno, pausando su ejecución entre cada entrega.
 
 
 def metric_rows(detail):
@@ -170,6 +188,8 @@ def flatten_object_details(details, folder_map, object_type, folder_prefix):
         # Descompone la ruta en modelo y los cuatro niveles de submodelo
         # definidos en esta versión: submodel, submodel1, submodel2 y submodel3.
         common.update(folder=folder, **parse_folder(folder, folder_prefix))
+
+        # Usa la función de aplanamiento específica del tipo para obtener las filas.
         for specific in FLATTENERS[object_type](detail):
             values = {**common, **specific}
             # Normaliza saltos de línea, tabulaciones y espacios de la descripción

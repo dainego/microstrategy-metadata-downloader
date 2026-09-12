@@ -1,13 +1,14 @@
-from config import (
-    BASE_URL,
-    ACCOUNT_ID,
-    ACCOUNT_PASSWORD,
-    LOG_FOLDER,
-    RESULTS_FOLDER,
-    OBJECT_TYPE_ATTRIBUTE,
-    OBJECT_SUBTYPE_ATTRIBUTE,
-    PROJECTS
-)
+import config
+import argparse
 
-print(ACCOUNT_ID)
-print(ACCOUNT_PASSWORD)
+print(config.PROJECTS)
+parser = argparse.ArgumentParser(description=config.APP_NAME)
+print(parser)
+parser.add_argument('--project-key', choices=config.PROJECTS)
+print(parser)
+parser.add_argument('--object-type', type=int, choices=config.OBJECT_TYPES, default=12)
+print(parser)
+args = parser.parse_args()
+print(args)
+project_key = args.project_key
+print(args.project_key)

@@ -137,7 +137,7 @@ class MicroStrategyClient:
             self.logger.error("login: la respuesta no contiene X-MSTR-AuthToken.")
             raise RuntimeError("La respuesta de login no contiene X-MSTR-AuthToken.")
 
-        self.session.headers["X-MSTR-AuthToken"] = token
+        self.session.headers["X-MSTR-AuthToken"] = token #Devuelve el token en el header de la sesión
         self.logger.info("Autenticación en MicroStrategy completada.")
 
     def api_call(self, method, endpoint, params=None, json_body=None, timeout=None):

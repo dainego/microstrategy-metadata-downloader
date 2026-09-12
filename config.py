@@ -29,13 +29,6 @@ APP_NAME = os.getenv("APP_NAME")
 LOG_FOLDER = BASE_FOLDER / "logs"
 RESULTS_FOLDER = BASE_FOLDER / "results"
 
-# Crea las carpetas faltantes al importar este módulo.
-# parents=True también crea los directorios superiores que no existan.
-# exist_ok=True evita un error si las carpetas ya existen.
-LOG_FOLDER.mkdir(parents=True, exist_ok=True)
-RESULTS_FOLDER.mkdir(parents=True, exist_ok=True)
-
-
 # Identificadores de objetos de metadata de MicroStrategy
 # El tipo de objeto indica la categoría que se desea recuperar.
 OBJECT_TYPE_ATTRIBUTE = int(os.getenv("OBJECT_TYPE_ATTRIBUTE", "12"))

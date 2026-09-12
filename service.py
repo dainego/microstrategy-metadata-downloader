@@ -38,6 +38,7 @@ def download_metadata(project_key, object_type=12, logger=None):
     # Si no se recibe un logger, crea uno propio con archivo por ejecución y cierra únicamente sus propios manejadores.
     # own_logger será True si no se recibió un logger, y será False si se recibió uno
     own_logger = logger is None
+
     # Si se crea un logger propio, se asegura de que exista la carpeta de logs y se configura con el nombre del proyecto y el identificador de ejecución.
     run_log = None
     if own_logger:
@@ -51,8 +52,9 @@ def download_metadata(project_key, object_type=12, logger=None):
         )
         logger.propagate = False
 
+    # Inicializa variables para el cliente, advertencias, confirmación de cierre de sesión y tiempo de inicio.
     client = None
-    warnings = []
+    warnings = [] #lista acumuladora de warnings
     logout_confirmed = False
     started_at = datetime.now(timezone.utc).isoformat()
     start = perf_counter()
@@ -94,14 +96,14 @@ def download_metadata(project_key, object_type=12, logger=None):
 
         # Obtiene los IDs únicos de la búsqueda filtrada por tipo y construye
         # un mapa de carpetas a partir del árbol y los identificadores seleccionados.
-        object_ids = list(dict.fromkeys(obj["id"] for obj in objects))
-        folder_map = build_folder_map(tree, object_ids)
+        object_ids = list(dict.fromkeys(obj["id"] for obj in objects)) #Haace una lista con los object_id obtenidos de la búsqueda
+        folder_map = build_folder_map(tree, object_ids) 
 
         # Obtiene los detalles de todos los objetos filtrados, y registra los identificadores de aquellos que fallaron en la descarga.
         details = get_all_object_details(client, object_ids, settings)
 
         failed_ids = [
-            object_id for object_id, detail in zip(object_ids, details)
+            object_id for object_id, detail in zip(object_ids, details) #zip() une elementos de dos o mas secuencias segun su posicion
             if detail is None
         ]
 
@@ -113,7 +115,7 @@ def download_metadata(project_key, object_type=12, logger=None):
             warnings.append(f"Falló la descarga de {len(failed_ids)} objetos.")
 
         # Convierte los detalles de los objetos descargados en filas exportables, y si no se generaron filas, agrega una advertencia.
-        rows = flatten_object_details(details, folder_map, object_type, settings["folder_prefix"])
+        rows = flatten_object_details(details, folder_map, object_type, settings["folder_prefix"]) #funcion de metadata.py
         if downloaded and not rows:
             warnings.append("Los detalles descargados no generaron filas exportables.")
 
@@ -153,8 +155,9 @@ def download_metadata(project_key, object_type=12, logger=None):
     finally:
         # La limpieza nunca reemplaza un error previo de descarga o exportación.
         if client is not None:
+            #Intenta hacer logoff y liberar la sesión y cookies de la instancia client
             try:
-                logout_confirmed = client.logout() is True
+                logout_confirmed = client.logout() is True #guarda en logout_confirmed si el resultado fue exactamente True
                 if not logout_confirmed:
                     warnings.append("No se pudo confirmar el cierre de la sesión remota.")
             except Exception as exc:
@@ -162,7 +165,7 @@ def download_metadata(project_key, object_type=12, logger=None):
                 warnings.append("Ocurrió un error al cerrar la sesión remota.")
             finally:
                 try:
-                    client.close()
+                    client.close() #Solo libera conexiones y cookies locales. No sustituye a logout() en el servidor.
                 except Exception as exc:
                     logger.error("Ejecución %s: error en close (%s).", run_id, type(exc).__name__)
                     warnings.append("No se pudo confirmar la liberación de recursos locales.")
