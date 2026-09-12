@@ -1,0 +1,12 @@
+services:
+  microstrategy-metadata-api:
+    build: .
+    container_name: microstrategy-metadata-api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./results:/app/results
+    restart: unless-stopped

@@ -51,7 +51,7 @@ PROJECTS = {
         "metric_root": os.getenv("MSTR_PROJECT_1_METRIC_ROOT"),
         "filter_root": os.getenv("MSTR_PROJECT_1_FILTER_ROOT"),
         "fact_root": os.getenv("MSTR_PROJECT_1_FACT_ROOT"),
-    },
+    }, 
     "2": {
         "name": os.getenv("MSTR_PROJECT_2_NAME"),
         "project_id": os.getenv("MSTR_PROJECT_2_ID"),

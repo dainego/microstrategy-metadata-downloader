@@ -1,13 +1,31 @@
 # Notas
 
 ## Ejecución del código
+OBJECT_TYPE_ATTRIBUTE=12
+OBJECT_TYPE_METRIC=4
+OBJECT_TYPE_FILTER=1
+OBJECT_TYPE_FACT=13
+
+MSRT_PROJECT_1_NAME=BigData
+MSRT_PROJECT_2_NAME=MUC
 
 ### Main
-python main.py --project-key 1 --object-type 12
+python main.py --project-key 2 --object-type 12
 
 ### Uvicorn
 python -m uvicorn api:app --reload
 http://127.0.0.1:8000/docs
+
+### Docker
+docker compose up --build
+La api queda disponible en: http://127.0.0.1:8000/docs
+
+#### Ejecucion en segundo plano
+docker compose -f deploy/docker-compose.yml up --build
+#### Ver logs
+docker compose -f deploy/docker-compose.yml logs -f
+#### Detenerla
+docker compose -f deploy/docker-compose.yml down
 
 
 ## Responsabilidades de los Módulos
@@ -68,3 +86,5 @@ log_folder = ensure_folder(config.LOG_FOLDER)
 ### Módulo de validación
 Armar un módulo que valide toda la información de config para
 simplificar los módulos
+
+### Hacer la API Multi Instancia 
