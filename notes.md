@@ -17,11 +17,13 @@ python -m uvicorn api:app --reload
 http://127.0.0.1:8000/docs
 
 ### Docker
-docker compose up --build
+docker compose -f deploy/docker-compose.yml up --build
 La api queda disponible en: http://127.0.0.1:8000/docs
 
 #### Ejecucion en segundo plano
-docker compose -f deploy/docker-compose.yml up --build
+docker compose -f deploy/docker-compose.yml up --build -d
+#### Confirmar activo
+docker compose -f deploy/docker-compose.yml ps
 #### Ver logs
 docker compose -f deploy/docker-compose.yml logs -f
 #### Detenerla
