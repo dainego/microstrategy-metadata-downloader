@@ -14,6 +14,10 @@ python -m uvicorn api:app --reload
 # URL Uvicorn
 http://127.0.0.1:8000/docs
 
+### Docker
+docker compose -f deploy/docker-compose.yml up --build
+La api queda disponible en: http://127.0.0.1:8000/docs
+
 # Prueba de compilación de Código
 python -m py_compile api.py
 

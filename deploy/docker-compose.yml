@@ -1,3 +1,5 @@
+name: microstrategy-metadata-downloader
+
 services:
   microstrategy-metadata-api:
     build:
